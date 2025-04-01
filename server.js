@@ -1,4 +1,4 @@
-// 📁 server.js — 텔레그램 HTML5 게임용 최소 서버 템플릿
+// 📁 server.js — /start 명령어 자동 응답 + callback_query 처리
 
 const express = require('express');
 const axios = require('axios');
@@ -7,30 +7,38 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 👇 여기에 너의 봇 토큰과 게임 URL 입력
-const BOT_TOKEN = '7439662090:AAGa4BiNyaQAjZKkDbn4ZUdjwHEwAM_n9Kc';
-const GAME_URL = 'https://gochu-tycoon-vqow.vercel.app/';
+const BOT_TOKEN = '7439662090:AAGa4BiNyaQAjZKkDbn4ZUdjwHEwAM_n9Kc'; // 👈 텔레그램 봇 토큰
+const GAME_URL = 'https://gochu-tycoon-vqow.vercel.app/'; // 👈 iframe에서 실행될 게임 URL
+const GAME_SHORT_NAME = 'GochuTycoon'; // 👈 BotFather에서 등록한 게임 short name
 
 app.use(bodyParser.json());
 
-// 📌 텔레그램이 webhook으로 호출할 엔드포인트
 app.post('/webhook', async (req, res) => {
-  const callbackQuery = req.body.callback_query;
+  const body = req.body;
 
-  if (callbackQuery) {
-    const callbackQueryId = callbackQuery.id;
+  // 1️⃣ 사용자가 "/start" 입력 시 게임 메시지 전송
+  if (body.message && body.message.text === '/start') {
+    const chatId = body.message.chat.id;
 
-    // 텔레그램에게 iframe으로 보여줄 URL 전달
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
-      callback_query_id: callbackQueryId,
-      url: GAME_URL
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendGame`, {
+      chat_id: chatId,
+      game_short_name: GAME_SHORT_NAME,
     });
   }
 
-  res.sendStatus(200); // 응답은 꼭 보내야 함
+  // 2️⃣ 버튼 클릭 시 iframe URL 응답
+  if (body.callback_query) {
+    const callbackQueryId = body.callback_query.id;
+
+    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+      callback_query_id: callbackQueryId,
+      url: GAME_URL,
+    });
+  }
+
+  res.sendStatus(200);
 });
 
-// 서버 실행
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);
 });
