@@ -1,5 +1,3 @@
-// 📁 server.js — 텔레그램 HTML5 게임용 서버 (자동 메시지 전송 포함)
-
 const express = require('express');
 const axios = require('axios');
 const bodyParser = require('body-parser');
@@ -7,8 +5,8 @@ const bodyParser = require('body-parser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const BOT_TOKEN = '7439662090:AAGa4BiNyaQAjZKkDbn4ZUdjwHEwAM_n9Kc';
-const GAME_SHORT_NAME = 'GochuTycoon';
+const BOT_TOKEN = '7439662090:AAGa4BiNyaQAjZKkDbn4ZUdjwHEwAM_n9Kc'; // 봇 토큰
+const GAME_URL = 'https://gochu-tycoon-vqow.vercel.app/'; // 게임 iframe URL
 
 app.use(bodyParser.json());
 
@@ -16,24 +14,41 @@ app.post('/webhook', async (req, res) => {
   const callbackQuery = req.body.callback_query;
   const message = req.body.message;
 
-  // 버튼 눌렀을 때 iframe URL 응답
-  if (callbackQuery) {
-    const callbackQueryId = callbackQuery.id;
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
-      callback_query_id: callbackQueryId,
-      url: 'https://gochu-tycoon-vqow.vercel.app/'
-    });
-  }
+  try {
+    // 1️⃣ /start 또는 아무 메시지 처리 → 게임 메시지 전송
+    if (message && message.chat && message.chat.id) {
+      const chatId = message.chat.id;
 
-  // 누군가 채팅방에 들어오면 자동으로 게임 메시지 전송
-  if (message && message.chat && message.chat.type === "private") {
-    await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendGame`, {
-      chat_id: message.chat.id,
-      game_short_name: GAME_SHORT_NAME
-    });
-  }
+      // Play 버튼이 있는 게임 메시지 보내기
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendGame`, {
+        chat_id: chatId,
+        game_short_name: 'GochuTycoon'
+      });
+    }
 
-  res.sendStatus(200);
+    // 2️⃣ 버튼 클릭 후 callback_query 처리 → iframe 링크 전달
+    if (callbackQuery) {
+      const chatId = callbackQuery.from.id;
+      const callbackQueryId = callbackQuery.id;
+
+      // 상태 메시지 전송
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        chat_id: chatId,
+        text: '서버가 깨어나는 중입니다... 잠시만 기다려 주세요 ⏳'
+      });
+
+      // iframe URL 응답
+      await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+        callback_query_id: callbackQueryId,
+        url: GAME_URL
+      });
+    }
+
+    res.sendStatus(200);
+  } catch (error) {
+    console.error('❌ 오류 발생:', error.message);
+    res.sendStatus(500);
+  }
 });
 
 app.listen(PORT, () => {
